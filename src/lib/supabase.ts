@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js'
 
 // Types for our Supabase database
@@ -80,20 +79,56 @@ export const getProfile = async () => {
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) {
-    throw new Error('User not authenticated');
+    return null;
   }
   
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .maybeSingle();
+      
+    if (error) {
+      console.error('Error fetching profile:', error);
+      return null;
+    }
     
-  if (error) {
-    throw error;
+    if (!data) {
+      console.log('No profile found for user:', user.id);
+      // Create a default profile for the user
+      const defaultProfile: Omit<Profile, 'id' | 'updated_at'> = {
+        name: user.user_metadata?.name || '',
+        email: user.email || '',
+        joined_date: new Date().toISOString(),
+        level: 1,
+        eco_points: 0,
+        consecutive_days: 0,
+        transportation_reductions: 0,
+        energy_savings: 0,
+        waste_reduction: 0,
+        measurement_unit: 'metric'
+      };
+
+      const { data: newProfile, error: createError } = await supabase
+        .from('profiles')
+        .insert({ id: user.id, ...defaultProfile })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Error creating profile:', createError);
+        return null;
+      }
+
+      return newProfile as Profile;
+    }
+    
+    return data as Profile;
+  } catch (error) {
+    console.error('Unexpected error in getProfile:', error);
+    return null;
   }
-  
-  return data as Profile;
 };
 
 // Helper function to update a user's profile

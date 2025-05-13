@@ -1,4 +1,3 @@
-
 import { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase, Profile, getProfile } from '@/lib/supabase';
@@ -44,12 +43,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(newSession?.user || null);
 
             if (newSession?.user) {
-              try {
-                const userProfile = await getProfile();
-                setProfile(userProfile);
-              } catch (error) {
-                console.error('Error fetching profile:', error);
-              }
+              const userProfile = await getProfile();
+              setProfile(userProfile);
             } else {
               setProfile(null);
             }
@@ -61,7 +56,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
       } catch (error) {
         console.error('Error in auth initialization:', error);
-        toast.error('Failed to initialize authentication');
+        // Don't show error toast for profile not found
+        if (error instanceof Error && !error.message.includes('JSON object requested')) {
+          toast.error('Failed to initialize authentication');
+        }
+        setProfile(null);
       } finally {
         setLoading(false);
       }
